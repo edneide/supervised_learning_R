@@ -1,0 +1,183 @@
+---
+title: "Naive Bayes"
+author: "Edneide Ramalho"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+    html_document:
+      highlight: textmate
+      logo: logo.png
+      theme: cerulean
+      number_sections: yes
+      toc: yes
+      toc_float:
+        collapsed: yes
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Making predictions with Naive Bayes
+
+```{r, eval=FALSE}
+# building Naive Bayes model
+library(naivebayes)
+m <- naive_bayes(location ~ time_of_day, data = local_history)
+```
+
+# **Computing probabilities**
+
+The `where9am` data frame contains 91 days (thirteen weeks) worth of data in which Brett recorded his `location` at 9am each day as well as whether the `daytype` was a weekend or weekday.
+
+$$
+P(A|B) = \dfrac{P (A \text{ and } B)}{P(B)}
+$$
+
+Using the conditional probability formula below, you can compute the probability that Brett is working in the office, given that it is a weekday.
+
+Calculations like these are the basis of the Naive Bayes destination prediction model you'll develop in later exercises.
+
+-   Find P(office) using `nrow()` and `subset()` to count rows in the dataset and save the result as `p_A`.
+
+-   Find P(weekday), using `nrow()` and `subset()` again, and save the result as `p_B`.
+
+-   Use `nrow()` and `subset()` a final time to find P(office and weekday). Save the result as `p_AB`.
+
+-   Compute P(office \| weekday) and save the result as `p_A_given_B`.
+
+-   Print the value of `p_A_given_B`.
+
+    ```{r}
+    # Data
+    path_locations <- "https://assets.datacamp.com/production/repositories/718/datasets/571628c39048df59c40c9dcfba146a2cf7a4a0e3/locations.csv"
+    locations_df <- read_csv(path_locations)
+    glimpse(locations_df)
+    ```
+
+```{r}
+# where9am data
+where9am <- locations_df %>% 
+  filter(hour == 9, hourtype == "morning") %>% 
+  select(daytype, location)
+dim(where9am)
+head(where9am)
+```
+
+```{r}
+# Compute P(A) 
+p_A <- nrow(subset(where9am, location == "office"))/nrow(where9am)
+
+# Compute P(B)
+p_B <- nrow(subset(where9am, daytype == "weekday"))/nrow(where9am)
+
+# Compute the observed P(A and B)
+p_AB <- nrow(subset(where9am, daytype == "weekday" & location == "office"))/nrow(where9am) 
+
+# Compute P(A | B) and print its value
+p_A_given_B <- p_AB/p_B
+print(p_A_given_B)
+```
+
+# **Understanding dependent events**
+
+In the previous exercise, you found that there is a 60% chance Brett is in the office at 9am given that it is a weekday. On the other hand, if Brett is never in the office on a weekend, which of the following is/are true?
+
+**Possible Answers**
+
+-   P(office and weekend) = 0.
+
+-   P(office \| weekend) = 0.
+
+-   Brett's location is dependent on the day of the week.
+
+-   All of the above. ✅
+
+# **A simple Naive Bayes location model**
+
+The previous exercises showed that the probability that Brett is at work or at home at 9am is highly dependent on whether it is the weekend or a weekday.
+
+To see this finding in action, use the `where9am` data frame to build a Naive Bayes model on the same data.
+
+You can then use this model to predict the future: where does the model think that Brett will be at 9am on Thursday and at 9am on Saturday?
+
+The data frame `where9am` is available in your workspace. This dataset contains information about Brett's location at 9am on different days.\
+
+-   Load the `naivebayes` package.
+
+-   Use `naive_bayes()` with a formula like `y ~ x` to build a model of `location` as a function of `daytype`.
+
+-   Forecast the Thursday 9am location using `predict()` with the `thursday9am` object as the `newdata` argument.
+
+-   Do the same for predicting the `saturday9am` location\
+
+```{r}
+thursday9am <- locations_df %>% 
+  filter(weekday == "thursday", hourtype == "morning") %>% 
+  select(daytype)
+thursday9am <- thursday9am[1, 1]
+  
+saturday9am <- locations_df %>% 
+  filter(weekday == "saturday", hourtype == "morning") %>% 
+  select(daytype)
+saturday9am <- saturday9am[1,1]
+```
+
+```{r}
+# Load the naivebayes package
+library(naivebayes)
+
+# Build the location prediction model
+locmodel <- naive_bayes(location ~ daytype, data = where9am)
+
+# Predict Thursday's 9am location
+predict(locmodel, thursday9am)
+
+# Predict Saturdays's 9am location
+predict(locmodel, saturday9am)
+```
+
+# **Examining "raw" probabilities**
+
+The `naivebayes` package offers several ways to peek inside a Naive Bayes model.
+
+Typing the name of the model object provides the *a priori* (overall) and conditional probabilities of each of the model's predictors. If one were so inclined, you might use these for calculating *posterior* (predicted) probabilities by hand.
+
+Alternatively, R will compute the posterior probabilities for you if the `type = "prob"` parameter is supplied to the `predict()` function.
+
+Using these methods, examine how the model's predicted 9am location probability varies from day-to-day. The model `locmodel` that you fit in the previous exercise is available for you to use, and the `naivebayes` package has been pre-loaded.
+
+-   Print the `locmodel` object to the console to view the computed *a priori* and conditional probabilities.
+
+-   Use the `predict()` function similarly to the previous exercise, but with `type = "prob"` to see the predicted probabilities for Thursday at 9am.
+
+-   Compare these to the predicted probabilities for Saturday at 9am.
+
+```{r}
+locmodel
+```
+
+```{r}
+predict(locmodel, thursday9am, type = "prob")
+```
+
+```{r}
+predict(locmodel, saturday9am, type = "prob")
+```
+
+\
+**Understanding independence**
+
+Understanding the idea of event independence will become important as you learn more about how "naive" Bayes got its name. Which of the following is true about independent events?
+
+**Possible Answers**
+
+-   The events cannot occur at the same time.
+
+-   A Venn diagram will always show no intersection.
+
+-   Knowing the outcome of one event does not help predict the other. ✅
+
+    -   *Yes! One event is independent of another if knowing one doesn't give you information about how likely the other is. For example, knowing if it's raining in New York doesn't help you predict the weather in San Francisco. The weather events in the two cities are independent of each other.*
+
+-   At least one of the events is completely random.
